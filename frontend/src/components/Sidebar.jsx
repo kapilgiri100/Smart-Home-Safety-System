@@ -11,7 +11,7 @@ export default function Sidebar() {
     <aside className="hidden w-56 shrink-0 flex-col bg-graphite px-4 py-6 md:flex">
       <div className="mb-8 flex items-center gap-2 px-2">
         <span className="text-xl">🛡️</span>
-        <span className="font-display text-lg font-semibold text-white">Guardian</span>
+        <span className="font-display text-lg font-semibold text-white">Smart Home Security</span>
       </div>
 
       <nav className="flex flex-col gap-1">
