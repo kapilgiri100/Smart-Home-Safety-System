@@ -1,6 +1,7 @@
 require("dotenv").config();
 const http = require("http");
 const app = require("./app");
+const pool = require("./config/db");
 const { initSocket } = require("./config/socket");
 
 const requiredEnv = ["JWT_SECRET", "DEVICE_API_KEY"];
@@ -26,9 +27,21 @@ if (!dbConfigured) {
 
 const PORT = process.env.PORT || 5000;
 
-const server = http.createServer(app);
-initSocket(server);
+async function startServer() {
+  try {
+    await pool.query("SELECT 1");
+    await pool.initializeDatabase();
 
-server.listen(PORT, () => {
-  console.log(`Smart Home backend listening on http://localhost:${PORT}`);
-});
+    const server = http.createServer(app);
+    initSocket(server);
+
+    server.listen(PORT, () => {
+      console.log(`Smart Home backend listening on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start backend:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

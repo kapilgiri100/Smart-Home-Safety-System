@@ -10,7 +10,24 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+const allowedOrigins = (process.env.CORS_ORIGIN || "*")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+                callback(null, true);
+                return;
+            }
+
+            callback(null, false);
+        },
+        credentials: true,
+    })
+);
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
