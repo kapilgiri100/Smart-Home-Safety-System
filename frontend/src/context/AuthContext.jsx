@@ -32,7 +32,8 @@ export function AuthProvider({ children }) {
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to log in.");
+      const message = err.response?.data?.message || err.message || "Unable to log in.";
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
@@ -49,7 +50,8 @@ export function AuthProvider({ children }) {
       setUser(registeredUser);
       return registeredUser;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to create account.");
+      const message = err.response?.data?.message || err.message || "Unable to create account.";
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
