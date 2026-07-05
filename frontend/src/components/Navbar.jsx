@@ -1,11 +1,19 @@
 import { useAuth } from "../context/AuthContext.jsx";
 
-export default function Navbar({ deviceConnected, lastHeartbeat }) {
+export default function Navbar({ deviceConnected, lastHeartbeat, onMenuClick }) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="rounded-lg border border-slate-200 p-2 text-lg text-ink md:hidden"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
         <img src="/logo.png" alt="Site logo" className="h-9 w-9 rounded-full object-cover" />
         <div>
           <p className="text-xs text-muted">Smart Home Safety Console</p>

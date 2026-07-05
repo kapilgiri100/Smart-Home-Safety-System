@@ -8,7 +8,8 @@ import { socket } from "../socket/socket.js";
 export default function Dashboard() {
   const [appliances, setAppliances] = useState([]);
   const [draftNames, setDraftNames] = useState({});
-  const [sensor, setSensor] = useState({ fireStatus: false, gasStatus: false });
+  const [sensor, setSensor] = useState({ fireStatus: false, gasStatus: false, waterLevel: 0 });
+  const [pumpOverride, setPumpOverride] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +22,7 @@ export default function Dashboard() {
         ]);
         setAppliances(applianceData);
         setDraftNames(Object.fromEntries(applianceData.map((app) => [app.id, app.name])));
-        setSensor(sensorData || { fireStatus: false, gasStatus: false });
+        setSensor(sensorData || { fireStatus: false, gasStatus: false, waterLevel: 0 });
       } finally {
         setLoading(false);
       }
@@ -83,6 +84,7 @@ export default function Dashboard() {
   }
 
   const alertActive = sensor.fireStatus || sensor.gasStatus;
+  const pumpAction = sensor.waterLevel <= 20 ? "ON" : sensor.waterLevel >= 100 ? "OFF" : pumpOverride ? "MANUAL" : "IDLE";
 
   return (
     <div className="flex flex-col gap-6">
@@ -151,7 +153,37 @@ export default function Dashboard() {
         <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-muted">
           Sensors
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={`rounded-2xl p-5 shadow-panel transition-colors ${sensor.waterLevel >= 70 ? "bg-signal-amber text-white" : "bg-white text-ink"}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl">💧</span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${sensor.waterLevel >= 70 ? "bg-white/20 text-white" : "bg-slate-100 text-muted"}`}>
+                {sensor.waterLevel >= 70 ? "High" : sensor.waterLevel >= 40 ? "Normal" : "Low"}
+              </span>
+            </div>
+            <h3 className="mt-3 font-display text-base font-semibold">Water Level</h3>
+            <p className={`mt-1 text-xs ${sensor.waterLevel >= 70 ? "text-white/80" : "text-muted"}`}>
+              Current water level is {sensor.waterLevel}%.
+            </p>
+            <div className="mt-4 h-2 rounded-full bg-slate-100">
+              <div
+                className={`h-2 rounded-full ${sensor.waterLevel >= 70 ? "bg-white" : "bg-signal-blue"}`}
+                style={{ width: `${Math.max(6, sensor.waterLevel)}%` }}
+              />
+            </div>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white/70 p-3 text-xs text-muted">
+              <p className="font-semibold text-ink">Pump status: {pumpAction}</p>
+              {sensor.waterLevel <= 50 && (
+                <button
+                  type="button"
+                  onClick={() => setPumpOverride((prev) => !prev)}
+                  className="mt-2 rounded-lg bg-signal-blue px-3 py-2 font-semibold text-white"
+                >
+                  {pumpOverride ? "Disable manual override" : "Turn pump on manually"}
+                </button>
+              )}
+            </div>
+          </div>
           <SensorCard
             label="Flame Sensor"
             icon="🔥"

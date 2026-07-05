@@ -7,6 +7,7 @@ import { socket } from "../socket/socket.js";
 export default function DashboardLayout() {
   const [lastHeartbeat, setLastHeartbeat] = useState(null);
   const [deviceConnected, setDeviceConnected] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     function handleHeartbeat({ timestamp }) {
@@ -30,10 +31,14 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex min-h-screen bg-canvas">
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col">
-        <Navbar deviceConnected={deviceConnected} lastHeartbeat={lastHeartbeat} />
-        <main className="flex-1 px-6 py-6">
+        <Navbar
+          deviceConnected={deviceConnected}
+          lastHeartbeat={lastHeartbeat}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
+        <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">
           <Outlet />
         </main>
       </div>
