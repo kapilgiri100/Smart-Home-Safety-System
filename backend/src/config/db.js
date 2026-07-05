@@ -42,8 +42,12 @@ async function initializeDatabase() {
         id SERIAL PRIMARY KEY,
         fire_status BOOLEAN NOT NULL DEFAULT FALSE,
         gas_status BOOLEAN NOT NULL DEFAULT FALSE,
+        water_level NUMERIC(5,2) NOT NULL DEFAULT 0,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+
+      ALTER TABLE sensors
+      ADD COLUMN IF NOT EXISTS water_level NUMERIC(5,2) NOT NULL DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS activity_logs (
         id SERIAL PRIMARY KEY,
@@ -55,8 +59,8 @@ async function initializeDatabase() {
       VALUES ('Light', FALSE), ('Fan', FALSE), ('TV', FALSE), ('Smart Socket', FALSE)
       ON CONFLICT (name) DO NOTHING;
 
-      INSERT INTO sensors (fire_status, gas_status)
-      SELECT FALSE, FALSE
+      INSERT INTO sensors (fire_status, gas_status, water_level)
+      SELECT FALSE, FALSE, 0
       WHERE NOT EXISTS (SELECT 1 FROM sensors);
     `);
   } finally {
