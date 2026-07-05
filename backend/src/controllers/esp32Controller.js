@@ -12,7 +12,7 @@ const { getIO } = require("../config/socket");
 // }
 async function receiveDeviceUpdate(req, res, next) {
   try {
-    const { appliances = {}, fireStatus, gasStatus } = req.body;
+    const { appliances = {}, fireStatus, gasStatus, waterLevel } = req.body;
 
     const updatedAppliances = [];
     for (const [name, status] of Object.entries(appliances)) {
@@ -24,12 +24,13 @@ async function receiveDeviceUpdate(req, res, next) {
     let sensor = null;
     if (typeof fireStatus === "boolean" || typeof gasStatus === "boolean") {
       const { rows } = await pool.query(
-        'SELECT fire_status AS "fireStatus", gas_status AS "gasStatus" FROM sensors ORDER BY id DESC LIMIT 1'
+        'SELECT fire_status AS "fireStatus", gas_status AS "gasStatus", water_level AS "waterLevel" FROM sensors ORDER BY id DESC LIMIT 1'
       );
       const current = rows[0];
       sensor = await syncSensorFromDevice({
         fireStatus: typeof fireStatus === "boolean" ? fireStatus : current?.fireStatus ?? false,
         gasStatus: typeof gasStatus === "boolean" ? gasStatus : current?.gasStatus ?? false,
+        waterLevel: typeof waterLevel === "number" ? waterLevel : current?.waterLevel ?? 0,
       });
     }
 

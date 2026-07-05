@@ -4,7 +4,7 @@
 
   Responsibilities (matches the backend contract in backend/src/controllers/esp32Controller.js):
     - Read 4 physical switches + drive 4 relays (Light, Fan, TV, Smart Socket)
-    - Read flame sensor (digital HIGH = fire) and MQ-2 gas sensor (analog threshold)
+    - Read flame sensor (digital HIGH = fire), MQ-2 gas sensor (analog threshold), and water level sensor
     - Drive buzzer + warning LED on any alert
     - POST current state to POST /api/device/update whenever something changes,
       and on a fixed heartbeat interval so the dashboard knows it's alive
@@ -18,6 +18,7 @@
     Relay 4 (Socket)  -> GPIO 15   Switch 4 -> GPIO 33
     Flame sensor DO   -> GPIO 34
     MQ-2 gas sensor AO-> GPIO 35
+    Water level sensor -> GPIO 36
     Buzzer            -> GPIO 32
     Warning LED       -> GPIO 4
 */
@@ -27,51 +28,58 @@
 #include <ArduinoJson.h>
 
 // ---------- Configuration ----------
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* BACKEND_HOST  = "http://192.168.1.100:5000"; // your backend's LAN IP
-const char* DEVICE_KEY    = "replace_with_a_long_random_device_key"; // must match backend .env DEVICE_API_KEY
+const char *WIFI_SSID = "YOUR_WIFI_SSID";
+const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char *BACKEND_HOST = "http://192.168.1.100:5000";           // your backend's LAN IP
+const char *DEVICE_KEY = "replace_with_a_long_random_device_key"; // must match backend .env DEVICE_API_KEY
 
 const int GAS_THRESHOLD = 1800; // tune to your MQ-2 + sensitivity pot
 
 // ---------- Pins ----------
-const int RELAY_PINS[4]  = {14, 12, 13, 15};
+const int RELAY_PINS[4] = {14, 12, 13, 15};
 const int SWITCH_PINS[4] = {27, 26, 25, 33};
-const char* APPLIANCE_NAMES[4] = {"Light", "Fan", "TV", "Smart Socket"};
+const char *APPLIANCE_NAMES[4] = {"Light", "Fan", "TV", "Smart Socket"};
 
 const int FLAME_PIN = 34;
-const int GAS_PIN    = 35;
+const int GAS_PIN = 35;
+const int WATER_LEVEL_PIN = 36;
 const int BUZZER_PIN = 32;
-const int LED_PIN    = 4;
+const int LED_PIN = 4;
 
 // ---------- State ----------
 bool applianceState[4] = {false, false, false, false};
 bool lastSwitchState[4] = {false, false, false, false};
 bool fireStatus = false;
 bool gasStatus = false;
+int waterLevel = 0;
 
 unsigned long lastHeartbeat = 0;
 const unsigned long HEARTBEAT_INTERVAL_MS = 15000;
 unsigned long lastPoll = 0;
 const unsigned long POLL_INTERVAL_MS = 2000;
 
-void connectWifi() {
+void connectWifi()
+{
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(400);
     Serial.print(".");
   }
   Serial.println("\nConnected. IP: " + WiFi.localIP().toString());
 }
 
-void applyRelay(int index) {
+void applyRelay(int index)
+{
   digitalWrite(RELAY_PINS[index], applianceState[index] ? HIGH : LOW);
 }
 
 // POST /api/device/update — reports appliance + sensor state to the backend
-void sendDeviceUpdate(bool includeAppliances) {
-  if (WiFi.status() != WL_CONNECTED) return;
+void sendDeviceUpdate(bool includeAppliances)
+{
+  if (WiFi.status() != WL_CONNECTED)
+    return;
 
   HTTPClient http;
   http.begin(String(BACKEND_HOST) + "/api/device/update");
@@ -79,14 +87,17 @@ void sendDeviceUpdate(bool includeAppliances) {
   http.addHeader("x-device-key", DEVICE_KEY);
 
   StaticJsonDocument<512> doc;
-  if (includeAppliances) {
+  if (includeAppliances)
+  {
     JsonObject appliances = doc.createNestedObject("appliances");
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++)
+    {
       appliances[APPLIANCE_NAMES[i]] = applianceState[i];
     }
   }
   doc["fireStatus"] = fireStatus;
   doc["gasStatus"] = gasStatus;
+  doc["waterLevel"] = waterLevel;
 
   String body;
   serializeJson(doc, body);
@@ -97,24 +108,30 @@ void sendDeviceUpdate(bool includeAppliances) {
 }
 
 // GET /api/appliances — picks up commands issued from the React dashboard
-void pollDashboardCommands() {
-  if (WiFi.status() != WL_CONNECTED) return;
+void pollDashboardCommands()
+{
+  if (WiFi.status() != WL_CONNECTED)
+    return;
 
   HTTPClient http;
   http.begin(String(BACKEND_HOST) + "/api/appliances");
   http.addHeader("x-device-key", DEVICE_KEY); // backend can also allow device-key on this GET
   int code = http.GET();
 
-  if (code == 200) {
+  if (code == 200)
+  {
     String payload = http.getString();
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, payload);
 
-    for (JsonObject item : doc.as<JsonArray>()) {
-      const char* name = item["name"];
+    for (JsonObject item : doc.as<JsonArray>())
+    {
+      const char *name = item["name"];
       bool status = item["status"];
-      for (int i = 0; i < 4; i++) {
-        if (strcmp(APPLIANCE_NAMES[i], name) == 0 && applianceState[i] != status) {
+      for (int i = 0; i < 4; i++)
+      {
+        if (strcmp(APPLIANCE_NAMES[i], name) == 0 && applianceState[i] != status)
+        {
           applianceState[i] = status;
           applyRelay(i);
         }
@@ -124,44 +141,60 @@ void pollDashboardCommands() {
   http.end();
 }
 
-void checkPhysicalSwitches() {
+void checkPhysicalSwitches()
+{
   bool changed = false;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     bool pressed = digitalRead(SWITCH_PINS[i]) == HIGH;
-    if (pressed && !lastSwitchState[i]) {
+    if (pressed && !lastSwitchState[i])
+    {
       applianceState[i] = !applianceState[i];
       applyRelay(i);
       changed = true;
     }
     lastSwitchState[i] = pressed;
   }
-  if (changed) {
+  if (changed)
+  {
     sendDeviceUpdate(true);
   }
 }
 
-void checkSensors() {
+int readWaterLevel()
+{
+  int raw = analogRead(WATER_LEVEL_PIN);
+  return constrain(map(raw, 0, 4095, 0, 100), 0, 100);
+}
+
+void checkSensors()
+{
   bool newFire = digitalRead(FLAME_PIN) == HIGH;
   int gasReading = analogRead(GAS_PIN);
   bool newGas = gasReading > GAS_THRESHOLD;
+  int newWaterLevel = readWaterLevel();
 
-  bool changed = (newFire != fireStatus) || (newGas != gasStatus);
+  bool changed = (newFire != fireStatus) || (newGas != gasStatus) || (abs(newWaterLevel - waterLevel) >= 2);
   fireStatus = newFire;
   gasStatus = newGas;
+  waterLevel = newWaterLevel;
 
   bool alarm = fireStatus || gasStatus;
   digitalWrite(BUZZER_PIN, alarm ? HIGH : LOW);
   digitalWrite(LED_PIN, alarm ? HIGH : LOW);
 
-  if (changed) {
+  if (changed)
+  {
     sendDeviceUpdate(false);
   }
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     pinMode(RELAY_PINS[i], OUTPUT);
     pinMode(SWITCH_PINS[i], INPUT);
     digitalWrite(RELAY_PINS[i], LOW);
@@ -169,25 +202,31 @@ void setup() {
 
   pinMode(FLAME_PIN, INPUT);
   pinMode(GAS_PIN, INPUT);
+  pinMode(WATER_LEVEL_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
+
+  waterLevel = readWaterLevel();
 
   connectWifi();
   sendDeviceUpdate(true); // initial state on boot
 }
 
-void loop() {
+void loop()
+{
   checkPhysicalSwitches();
   checkSensors();
 
   unsigned long now = millis();
 
-  if (now - lastPoll > POLL_INTERVAL_MS) {
+  if (now - lastPoll > POLL_INTERVAL_MS)
+  {
     pollDashboardCommands();
     lastPoll = now;
   }
 
-  if (now - lastHeartbeat > HEARTBEAT_INTERVAL_MS) {
+  if (now - lastHeartbeat > HEARTBEAT_INTERVAL_MS)
+  {
     sendDeviceUpdate(true);
     lastHeartbeat = now;
   }

@@ -40,6 +40,7 @@ app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
+app.use("/auth", authRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/appliances", deviceRoutes);
 app.use("/api/sensors", sensorRoutes);
