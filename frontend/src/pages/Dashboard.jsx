@@ -5,10 +5,19 @@ import { fetchAppliances, setApplianceStatus, setApplianceName } from "../servic
 import { fetchSensorStatus } from "../services/sensorService.js";
 import { socket } from "../socket/socket.js";
 
+const fallbackAppliances = [
+  { id: 1, name: "Light", status: false },
+  { id: 2, name: "Fan", status: false },
+  { id: 3, name: "TV", status: false },
+  { id: 4, name: "Smart Socket", status: false },
+];
+
+const defaultSensorState = { fireStatus: false, gasStatus: false, waterLevel: 0 };
+
 export default function Dashboard() {
-  const [appliances, setAppliances] = useState([]);
+  const [appliances, setAppliances] = useState(fallbackAppliances);
   const [draftNames, setDraftNames] = useState({});
-  const [sensor, setSensor] = useState({ fireStatus: false, gasStatus: false, waterLevel: 0 });
+  const [sensor, setSensor] = useState(defaultSensorState);
   const [pumpOverride, setPumpOverride] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,13 +25,24 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadInitialState() {
       try {
-        const [applianceData, sensorData] = await Promise.all([
+        const [applianceResult, sensorResult] = await Promise.allSettled([
           fetchAppliances(),
           fetchSensorStatus(),
         ]);
+
+        const applianceData = applianceResult.status === "fulfilled" && Array.isArray(applianceResult.value)
+          ? applianceResult.value
+          : fallbackAppliances;
+        const sensorData = sensorResult.status === "fulfilled" ? sensorResult.value : null;
+
         setAppliances(applianceData);
         setDraftNames(Object.fromEntries(applianceData.map((app) => [app.id, app.name])));
-        setSensor(sensorData || { fireStatus: false, gasStatus: false, waterLevel: 0 });
+        setSensor(sensorData || defaultSensorState);
+      } catch (err) {
+        console.error(err);
+        setAppliances(fallbackAppliances);
+        setDraftNames(Object.fromEntries(fallbackAppliances.map((app) => [app.id, app.name])));
+        setSensor(defaultSensorState);
       } finally {
         setLoading(false);
       }
