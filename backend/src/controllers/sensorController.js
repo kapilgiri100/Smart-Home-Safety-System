@@ -24,9 +24,12 @@ function buildSensorResponse(row) {
   };
 }
 
-function getPumpAction(waterLevel, manualOverride = false) {
+function getPumpAction(waterLevel, manualOverride = false, fireStatus = false, gasStatus = false) {
   if (manualOverride) {
     return "MANUAL";
+  }
+  if (fireStatus || gasStatus) {
+    return "EMERGENCY";
   }
   if (waterLevel <= 20) {
     return "ON";
@@ -35,6 +38,25 @@ function getPumpAction(waterLevel, manualOverride = false) {
     return "OFF";
   }
   return "IDLE";
+}
+
+function getSensorActivityMessages({ fireStatus, gasStatus, waterLevel }) {
+  const messages = [];
+  if (fireStatus) {
+    messages.push("🔴 Fire detected by flame sensor");
+  }
+  if (gasStatus) {
+    messages.push("🔴 Gas leakage detected by MQ-2 sensor");
+  }
+  if (fireStatus || gasStatus) {
+    messages.push("🚨 Emergency alert — pump activated for safety");
+  }
+  if (waterLevel <= 20) {
+    messages.push("💧 Water level low — pump activated");
+  } else if (waterLevel >= 100) {
+    messages.push("💧 Water level full — pump stopped");
+  }
+  return messages;
 }
 
 async function getSensorStatus(req, res, next) {
@@ -73,19 +95,12 @@ async function syncSensorFromDevice({ fireStatus, gasStatus, waterLevel }) {
     sensor = rows[0];
   }
 
-  if (fireStatus) {
-    await pool.query("INSERT INTO activity_logs (event) VALUES ($1)", [
-      "🔴 Fire detected by flame sensor",
-    ]);
-  }
-  if (gasStatus) {
-    await pool.query("INSERT INTO activity_logs (event) VALUES ($1)", [
-      "🔴 Gas leakage detected by MQ-2 sensor",
-    ]);
+  for (const message of getSensorActivityMessages({ fireStatus, gasStatus, waterLevel })) {
+    await pool.query("INSERT INTO activity_logs (event) VALUES ($1)", [message]);
   }
 
   getIO().emit("sensor:update", buildSensorResponse(sensor));
   return buildSensorResponse(sensor);
 }
 
-module.exports = { getSensorStatus, syncSensorFromDevice, normalizeWaterLevel, buildSensorResponse, getPumpAction };
+module.exports = { getSensorStatus, syncSensorFromDevice, normalizeWaterLevel, buildSensorResponse, getPumpAction, getSensorActivityMessages };

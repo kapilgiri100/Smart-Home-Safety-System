@@ -17,10 +17,10 @@ export default function About() {
                     <strong>Chandra Kamal Ghimire</strong>
                 </p>
                 <p>
-                    <strong>Madan Bhushal</strong>
+                    <strong>Madan Bhusal</strong>
                 </p>
                 <p>
-                    <strong>Purnima Badhual</strong>
+                    <strong>Purnima Baduwal</strong>
                 </p>
             </div>
             <p className="mt-6 text-sm text-muted">

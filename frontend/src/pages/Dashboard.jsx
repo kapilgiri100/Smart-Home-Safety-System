@@ -1,9 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import SensorCard from "../components/SensorCard.jsx";
 import { fetchAppliances, setApplianceStatus, setApplianceName } from "../services/deviceService.js";
 import { fetchSensorStatus } from "../services/sensorService.js";
 import { socket } from "../socket/socket.js";
+
+function getPumpAction(waterLevel, manualOverride = false, fireStatus = false, gasStatus = false) {
+  if (manualOverride) {
+    return "MANUAL";
+  }
+  if (fireStatus || gasStatus) {
+    return "EMERGENCY";
+  }
+  if (waterLevel <= 20) {
+    return "ON";
+  }
+  if (waterLevel >= 100) {
+    return "OFF";
+  }
+  return "IDLE";
+}
 
 const fallbackAppliances = [
   { id: 1, name: "Light", status: false },
@@ -21,6 +37,7 @@ export default function Dashboard() {
   const [pumpOverride, setPumpOverride] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const alarmAudioRef = useRef(null);
 
   useEffect(() => {
     async function loadInitialState() {
@@ -104,13 +121,30 @@ export default function Dashboard() {
   }
 
   const alertActive = sensor.fireStatus || sensor.gasStatus;
-  const pumpAction = sensor.waterLevel <= 20 ? "ON" : sensor.waterLevel >= 100 ? "OFF" : pumpOverride ? "MANUAL" : "IDLE";
+  const pumpAction = getPumpAction(sensor.waterLevel, pumpOverride, sensor.fireStatus, sensor.gasStatus);
+
+  useEffect(() => {
+    if (!alertActive) {
+      return;
+    }
+
+    const audio = alarmAudioRef.current;
+    if (audio) {
+      const alertSound = sensor.gasStatus ? "/gas_alert.mp3" : "/fire_aleart.mp3";
+      audio.pause();
+      audio.src = alertSound;
+      audio.load();
+      audio.currentTime = 0;
+      audio.play().catch(() => { });
+    }
+  }, [alertActive, sensor.fireStatus, sensor.gasStatus]);
 
   return (
     <div className="flex flex-col gap-6">
+      <audio ref={alarmAudioRef} preload="auto" className="hidden" />
       {alertActive && (
         <div className="rounded-2xl bg-signal-red px-5 py-3 text-sm font-semibold text-white">
-          ⚠ Safety alert active — check the fire and gas sensors below.
+          ⚠ Safety alert active — fire or gas detected. The pump is now set to emergency mode.
         </div>
       )}
 

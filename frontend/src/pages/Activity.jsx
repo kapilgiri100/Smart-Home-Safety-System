@@ -8,7 +8,7 @@ export default function Activity() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchActivity(200)
+    fetchActivity(20)
       .then(setLogs)
       .finally(() => setLoading(false));
   }, []);
@@ -17,7 +17,7 @@ export default function Activity() {
     // Any appliance or sensor update also implies a new log row was written,
     // so re-fetch the list to keep this page live too.
     function refresh() {
-      fetchActivity(200).then(setLogs);
+      fetchActivity(20).then(setLogs);
     }
     socket.on("appliance:update", refresh);
     socket.on("sensor:update", refresh);
