@@ -6,7 +6,9 @@ const deviceRoutes = require("./routes/deviceRoutes");
 const sensorRoutes = require("./routes/sensorRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const esp32Routes = require("./routes/esp32Routes");
+const scheduleRoutes = require("./routes/scheduleRoutes");
 const errorHandler = require("./middleware/errorHandler");
+
 
 const app = express();
 
@@ -46,6 +48,9 @@ app.use("/api/appliances", deviceRoutes);
 app.use("/api/sensors", sensorRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/device", esp32Routes);
+// Mount schedules router with and without trailing slash to prevent 404 from the frontend.
+app.use("/api/schedules", scheduleRoutes);
+app.use("/api/schedules/", scheduleRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found." }));
 app.use(errorHandler);

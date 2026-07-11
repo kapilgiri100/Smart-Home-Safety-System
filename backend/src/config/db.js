@@ -55,9 +55,25 @@ async function initializeDatabase() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS schedules (
+        id SERIAL PRIMARY KEY,
+        time_hhmm VARCHAR(5) NOT NULL,
+        action VARCHAR(3) NOT NULL CHECK (action IN ('ON','OFF')),
+        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS schedule_appliances (
+        schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
+        appliance_id INTEGER NOT NULL REFERENCES appliances(id) ON DELETE CASCADE,
+        PRIMARY KEY (schedule_id, appliance_id)
+      );
+
       INSERT INTO appliances (name, status)
       VALUES ('Light', FALSE), ('Fan', FALSE), ('TV', FALSE), ('Smart Socket', FALSE)
       ON CONFLICT (name) DO NOTHING;
+
 
       INSERT INTO sensors (fire_status, gas_status, water_level)
       SELECT FALSE, FALSE, 0
